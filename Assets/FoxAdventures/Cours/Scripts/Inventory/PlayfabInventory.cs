@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using PlayFab;
+using PlayFab.ClientModels;
 
-// TODO: Inherit or fill data in this class
 [System.Serializable]
 public class PlayfabInventoryItem
 {
-
+    public string ItemId;
+    public string DisplayName;
+    public int Count;
 }
 
 public class PlayfabInventory : MonoBehaviour
@@ -16,44 +19,32 @@ public class PlayfabInventory : MonoBehaviour
     {
         get
         {
-            //if (instance == null)
-            //    instance = FindObjectOfType<PlayfabInventory>();
+            if (instance == null)
+            instance = FindObjectOfType<PlayfabInventory>();
             return instance;
         }
     }
 
     [Header("Inventory")]
-    /// <summary>
-    /// Array of inventory items belonging to the user.
-    /// </summary>
     public List<PlayfabInventoryItem> Inventory;
-    /// <summary>
-    /// Array of virtual currency balance(s) belonging to the user.
-    /// </summary>
     public Dictionary<string, int> VirtualCurrency;
 
     [Header("Events")]
     public UnityEvent OnInventoryUpdateSuccess = new UnityEvent();
     public UnityEvent OnInventoryUpdateError = new UnityEvent();
 
-    // Start is called before the first frame update
     void OnEnable()
     {
-        // Only keep one singleton if another is already set
         if (PlayfabInventory.Instance != null && PlayfabInventory.Instance != this)
         {
             GameObject.Destroy(this.gameObject);
         }
-        // No singleton set or its us
         else
         {
-            // Set ourselves as the singleton
             PlayfabInventory.instance = this;
 
-            // Keep cross scene ?
             DontDestroyOnLoad(this.gameObject);
 
-            // Update Inventory
             this.UpdateInventory();
         }
     }
@@ -74,48 +65,49 @@ public class PlayfabInventory : MonoBehaviour
 
     public void UpdateInventory()
     {
-        // Trigger news show if logged in
         if (PlayfabAuth.IsLoggedIn == true)
         {
-            // TODO: Retrieve inventory from the PlayfabAPI
+            var request = new GetUserInventoryRequest();
+            PlayFabClientAPI.GetUserInventory(request, OnGetUserInventorySuccess, OnGetUserInventoryError);
         }
 
-        // Refresh in X seconds
         this.nextUpdateInventory = PlayfabInventory.UpdateInventoryEvery;
     }
 
-    private void OnGetUserInventorySuccess()
+    private void OnGetUserInventorySuccess(GetUserInventoryResult result)
     {
-        //// TODO: Update inventory here
-        // > Update this.Inventory
-        // > Update this.VirtualCurrency
+        this.Inventory = new List<PlayfabInventoryItem>();
+        foreach (var item in result.Inventory)
+        {
+            PlayfabInventoryItem newItem = new PlayfabInventoryItem();
+            newItem.ItemId = item.ItemId;
+            newItem.DisplayName = item.DisplayName;
+            newItem.Count = item.RemainingUses.Value;
+            this.Inventory.Add(newItem);
+        }
 
-        // Callback
+        this.VirtualCurrency = result.VirtualCurrency;
+
         if (this.OnInventoryUpdateSuccess != null)
             this.OnInventoryUpdateSuccess.Invoke();
     }
 
-    private void OnGetUserInventoryError()
+    private void OnGetUserInventoryError(PlayFabError error)
     {
-        // Log
-        Debug.LogError("PlayfabInventory.OnGetUserInventoryError() - Error: TODO");
+        Debug.LogError("PlayfabInventory.OnGetUserInventoryError() - Error: " + error.GenerateErrorReport());
 
-        // Callback
         if (this.OnInventoryUpdateError != null)
             this.OnInventoryUpdateError.Invoke();
     }
 
-    // Accessor
     public bool Possess(string catalogItemID)
     {
-        if (string.IsNullOrWhiteSpace(catalogItemID) == false && this.Inventory != null)
+        if (!string.IsNullOrWhiteSpace(catalogItemID) && this.Inventory != null)
         {
-            for (int i = 0; i < this.Inventory.Count; i++)
+            foreach (var item in this.Inventory)
             {
-                //// TODO: Find item by... ID ? Name?
-                //bool itemFound = false;
-                //if (itemFound == true)
-                //    return true;
+                if (item.ItemId == catalogItemID)
+                    return true;
             }
         }
         return false;

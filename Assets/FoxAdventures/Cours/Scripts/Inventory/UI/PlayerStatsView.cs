@@ -1,3 +1,5 @@
+using PlayFab;
+using PlayFab.ClientModels;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -48,59 +50,69 @@ public class PlayerStatsView : MonoBehaviour
     // Update Account Infos
     private void UpdateUserAccountInfos()
     {
-        // TODO: Call Playfab to retrieve various infos from our online account (ex. username, device or account ID, etc)
-        this.OnUpdateUserAccountInfosSuccess();
+        // Call Playfab to retrieve various infos from our online account (ex. username, device or account ID, etc)
+        var request = new GetAccountInfoRequest();
+        PlayFabClientAPI.GetAccountInfo(request, OnUpdateUserAccountInfosSuccess, OnUpdateUserAccountInfosError);
     }
 
-    private void OnUpdateUserAccountInfosSuccess()
+    private void OnUpdateUserAccountInfosSuccess(GetAccountInfoResult result)
     {
         // Log
         Debug.LogError("PlayerStatsView.OnUpdateUserAccountInfosSuccess() - Error: TODO");
 
-        // TODO: Update username from remote service?
-
-        // Show
-        this.Show();
-    }
-
-    private void OnUpdateUserAccountInfosError()
-    {
-        // Log
-        Debug.LogError("PlayerStatsView.OnUpdateUserAccountInfosError() - Error: TODO");
-    }
-
-    // Update User Stats
-    private void UpdateUserStats()
-    {
-        // TODO: Call Playfab to retrieve our player's data/inventory
-        //       in order to count the crystals (virtual currency? item in inventory?) we have
-        this.OnGetUserInventorySuccess();   // Fake
-    }
-
-    private void OnGetUserInventorySuccess()
-    {
-        // Crystals we have
-        int crystalsCount = 0;
-
-        // TODO: Get crystals from Playfab feedback
-
-        // Update crystals count
+        // Update username from remote service?
+        if (this.usernameText != null)
         {
-            if (this.crystalsCountText != null)
-            {
-                this.crystalsCountText.gameObject.SetActive(true);
-                this.crystalsCountText.text = crystalsCount.ToString();
-            }
-
-            if (this.crystalsIcon != null)
-                this.crystalsIcon.gameObject.SetActive(true);
+            this.usernameText.gameObject.SetActive(true);
+            this.usernameText.text = result.AccountInfo.Username;
         }
 
         // Show
         this.Show();
     }
 
-    private void OnGetUserInventoryError()
+    private void OnUpdateUserAccountInfosError(PlayFabError error)
+    {
+        // Log error
+        Debug.LogError("PlayerStatsView.OnUpdateUserAccountInfosError() - Error: " + error.ErrorMessage);
+    }
+
+
+   // Update User Stats
+    private void UpdateUserStats()
+    {
+        var request = new GetUserInventoryRequest();
+        PlayFabClientAPI.GetUserInventory(request, OnGetUserInventorySuccess, OnGetUserInventoryError);
+    }
+
+    private void OnGetUserInventorySuccess(GetUserInventoryResult result)
+    {
+        // Crystals we have
+        int crystalsCount = 0;
+
+        // Get crystals count from result
+        if (result.VirtualCurrency.TryGetValue("CR", out int crystals))
+        {
+            crystalsCount = crystals;
+        }
+
+        // Update crystals count
+        if (this.crystalsCountText != null)
+        {
+            this.crystalsCountText.gameObject.SetActive(true);
+            this.crystalsCountText.text = crystalsCount.ToString();
+        }
+
+        if (this.crystalsIcon != null)
+        {
+            this.crystalsIcon.gameObject.SetActive(true);
+        }
+
+        // Show
+        this.Show();
+    }
+
+    private void OnGetUserInventoryError(PlayFabError error)
     {
         // Update crystals count
         {
@@ -116,4 +128,5 @@ public class PlayerStatsView : MonoBehaviour
                 this.crystalsIcon.gameObject.SetActive(true);
         }
     }
+
 }
